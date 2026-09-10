@@ -12,6 +12,7 @@ import {
   IconVideo,
   IconLayers,
 } from './Icons.jsx'
+import { downloadGeneration } from '../api.js'
 
 const LABELS = {
   linkedin_post: { label: 'LinkedIn Post', icon: IconLinkedin, color: '#0A66C2' },
@@ -23,7 +24,7 @@ const LABELS = {
   video_package: { label: 'Video Package', icon: IconVideo, color: '#E02424' },
 }
 
-export default function ResultsPanel({ results }) {
+export default function ResultsPanel({ results, generationId }) {
   const keys = Object.keys(results || {})
   const [activeTab, setActiveTab] = useState(keys[0] || '')
 
@@ -32,59 +33,45 @@ export default function ResultsPanel({ results }) {
   const active = activeTab && results[activeTab] ? activeTab : keys[0]
 
   function downloadAsJson() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2))
-    const downloadAnchor = document.createElement('a')
-    downloadAnchor.setAttribute("href", dataStr)
-    downloadAnchor.setAttribute("download", `contentmorph-generation-${Date.now()}.json`)
-    document.body.appendChild(downloadAnchor)
-    downloadAnchor.click()
-    downloadAnchor.remove()
-  }
+    const blob = new Blob([JSON.stringify(results, null, 2)], {
+      type: 'application/json',
+    })
 
-  function downloadAsMarkdown() {
-    let md = `# ContentMorph AI - Transformation Results\n*Generated: ${new Date().toLocaleString()}*\n\n---\n\n`
-    for (const [key, data] of Object.entries(results)) {
-      const title = LABELS[key]?.label || key
-      md += `## ${title}\n\n`
-      if (typeof data === 'object') {
-        md += '```json\n' + JSON.stringify(data, null, 2) + '\n```\n\n'
-      } else {
-        md += `${data}\n\n`
-      }
-      md += `---\n\n`
-    }
-    const dataStr = "data:text/markdown;charset=utf-8," + encodeURIComponent(md)
-    const downloadAnchor = document.createElement('a')
-    downloadAnchor.setAttribute("href", dataStr)
-    downloadAnchor.setAttribute("download", `contentmorph-generation-${Date.now()}.md`)
-    document.body.appendChild(downloadAnchor)
-    downloadAnchor.click()
-    downloadAnchor.remove()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'contentmorph-results.json'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   }
 
   return (
-    <section className="card-panel results-main-panel">
-      <div className="results-top-header">
-        <div className="results-title-group">
-          <span className="results-success-pill">✓ Generated Successfully</span>
-          <h3>Transformed Outputs ({keys.length})</h3>
+    <section className="results-panel">
+      <div className="results-panel-header">
+        <div>
+          <div className="results-eyebrow">
+            <span className="results-eyebrow-dot"></span>
+            Generated Deliverables
+          </div>
+
+          <h2 className="results-title">
+            Your content is ready
+          </h2>
+
+          <p className="results-subtitle">
+            Review each generated deliverable below and download the results
+            you need.
+          </p>
         </div>
 
-        <div className="results-global-actions">
+        <div className="results-actions">
           <button
             type="button"
-            className="btn-export"
-            onClick={downloadAsMarkdown}
-            title="Download formatted Markdown"
-          >
-            <IconDownload className="w-4 h-4" />
-            <span>Export Markdown</span>
-          </button>
-          <button
-            type="button"
-            className="btn-export"
+            className="btn-modern-copy"
             onClick={downloadAsJson}
-            title="Download structured JSON"
+            title="Download all generated results as JSON"
           >
             <IconDownload className="w-4 h-4" />
             <span>JSON</span>
@@ -95,7 +82,12 @@ export default function ResultsPanel({ results }) {
       <div className="results-tabs-scroller">
         <div className="results-tabs-bar">
           {keys.map((key) => {
-            const config = LABELS[key] || { label: key, icon: IconLayers, color: '#6366F1' }
+            const config = LABELS[key] || {
+              label: key,
+              icon: IconLayers,
+              color: '#6366F1',
+            }
+
             const IconComp = config.icon
             const isActive = active === key
 
@@ -106,9 +98,15 @@ export default function ResultsPanel({ results }) {
                 className={`result-tab-btn ${isActive ? 'active' : ''}`}
                 onClick={() => setActiveTab(key)}
               >
-                <span className="tab-icon-wrap" style={{ color: isActive ? '#fff' : config.color }}>
+                <span
+                  className="tab-icon-wrap"
+                  style={{
+                    color: isActive ? '#fff' : config.color,
+                  }}
+                >
                   <IconComp className="w-4 h-4" />
                 </span>
+
                 <span>{config.label}</span>
               </button>
             )
@@ -117,7 +115,11 @@ export default function ResultsPanel({ results }) {
       </div>
 
       <div className="result-view-container">
-        <OutputView type={active} data={results[active]} />
+        <OutputView
+          type={active}
+          data={results[active]}
+          generationId={generationId}
+        />
       </div>
     </section>
   )
@@ -154,7 +156,40 @@ function CopyButton({ text, label = "Copy" }) {
   )
 }
 
-function OutputView({ type, data }) {
+function FormatDownloadButtons({ generationId }) {
+  const [busy, setBusy] = useState('')
+
+  async function handle(fmt) {
+    setBusy(fmt)
+    try {
+      await downloadGeneration(generationId, fmt)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="format-download-group">
+      {['pptx', 'docx', 'pdf'].map((fmt) => (
+        <button
+          key={fmt}
+          type="button"
+          className="btn-export"
+          disabled={busy === fmt}
+          onClick={() => handle(fmt)}
+          title={`Download as ${fmt.toUpperCase()}`}
+        >
+          <IconDownload className="w-4 h-4" />
+          <span>{busy === fmt ? 'Preparing…' : fmt.toUpperCase()}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function OutputView({ type, data, generationId }) {
   if (!data) return null
 
   // 1. LinkedIn Post
@@ -368,7 +403,10 @@ function OutputView({ type, data }) {
             <span className="deck-badge">Slide Deck Outline</span>
             <h3 className="deck-title">{slides.length} Slide Presentation</h3>
           </div>
-          <CopyButton text={fullText} label="Copy All Slides" />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <CopyButton text={fullText} label="Copy All Slides" />
+            {generationId && <FormatDownloadButtons generationId={generationId} />}
+          </div>
         </div>
 
         <div className="slides-list-flow">

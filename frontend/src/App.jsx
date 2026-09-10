@@ -44,30 +44,30 @@ export default function App() {
   const [error, setError] = useState('')
   const [isBackendReady, setIsBackendReady] = useState(false)
   const [isPresetsOpen, setIsPresetsOpen] = useState(false)
-  
+
   const resultsRef = useRef(null)
-  
+
   // Sync theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('cm_theme', theme)
   }, [theme])
-  
+
   function toggleTheme() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }
-  
+
   // Check auth and initial output types
   useEffect(() => {
     fetchCurrentUser().then((user) => {
       if (user) {
         setCurrentUser(user)
       }
-    }).catch(() => {})
-    
+    }).catch(() => { })
+
     fetchOutputTypes()
-    .then((data) => {
-      setOutputTypes(data)
+      .then((data) => {
+        setOutputTypes(data)
         setIsBackendReady(true)
         if (data.length > 0 && selectedOutputs.length === 0) {
           setSelectedOutputs([data[0].key, data[1]?.key, data[2]?.key].filter(Boolean))
@@ -78,7 +78,7 @@ export default function App() {
         setError('Could not connect to the backend on http://localhost:8000. Please ensure the backend server is running.')
       })
   }, [])
-  
+
   // Load history whenever currentUser changes
   useEffect(() => {
     if (currentUser) {
@@ -89,7 +89,7 @@ export default function App() {
       setHistory([])
     }
   }, [currentUser])
-  
+
   // Keyboard shortcut: Ctrl/Cmd + Enter to trigger generation
   useEffect(() => {
     function handleKeyDown(e) {
@@ -115,15 +115,15 @@ export default function App() {
     }
     return () => clearInterval(interval)
   }, [loading])
-  
+
   async function handleGenerate() {
     setError('')
-    
+
     if (!currentUser) {
       setIsAuthOpen(true)
       return
     }
-    
+
     if (!sourceText.trim() && !file) {
       setError('Please provide source content: paste text or upload a document/image.')
       return
@@ -132,7 +132,7 @@ export default function App() {
       setError('Please select at least one deliverable output type.')
       return
     }
-    
+
     const formData = new FormData()
     formData.append('output_types', selectedOutputs.join(','))
     formData.append('audience', parameters.audience)
@@ -149,13 +149,13 @@ export default function App() {
 
     setLoading(true)
     setActiveHistoryId(null)
-    
+
     try {
       const data = await generateContent(formData)
       setResults(data.results)
       setActiveHistoryId(data.id)
-      fetchHistory().then(setHistory).catch(() => {})
-      
+      fetchHistory().then(setHistory).catch(() => { })
+
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 150)
@@ -165,7 +165,7 @@ export default function App() {
       setLoading(false)
     }
   }
-  
+
   async function handleSelectHistory(id) {
     setError('')
     try {
@@ -173,16 +173,16 @@ export default function App() {
       setResults(data.results)
       setActiveHistoryId(id)
       if (data.parameters) setParameters((prev) => ({ ...prev, ...data.parameters }))
-        if (data.output_types) setSelectedOutputs(data.output_types)
-          
-          setTimeout(() => {
+      if (data.output_types) setSelectedOutputs(data.output_types)
+
+      setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
     } catch (err) {
       setError(err.message)
     }
   }
-  
+
   function handleSelectPreset(preset) {
     setSourceText(preset.sourceText)
     setFile(null)
@@ -193,9 +193,9 @@ export default function App() {
 
   function handleAuthSuccess(user) {
     setCurrentUser(user)
-    fetchHistory().then(setHistory).catch(() => {})
+    fetchHistory().then(setHistory).catch(() => { })
   }
-  
+
   function handleLogout() {
     logoutUser()
     setCurrentUser(null)
@@ -203,13 +203,13 @@ export default function App() {
     setHistory([])
     setActiveHistoryId(null)
   }
-  
+
   const loadingMessages = [
     'Analyzing context and factual hierarchy...',
     'Synthesizing deliverables with Groq LPU engine...',
     'Formatting structured JSON output artifacts...',
   ]
-  
+
   return (
     <div className="app-root">
       <Navbar
@@ -220,7 +220,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
-        />
+      />
 
       <main className="app-container">
         {error && (
@@ -258,18 +258,18 @@ export default function App() {
               setSourceText={setSourceText}
               file={file}
               setFile={setFile}
-              />
+            />
 
             <OutputSelector
               outputTypes={outputTypes}
               selected={selectedOutputs}
               setSelected={setSelectedOutputs}
-              />
+            />
 
             <ParametersPanel
               parameters={parameters}
               setParameters={setParameters}
-              />
+            />
 
             {/* Glowing CTA Generate Button */}
             <div className="generate-action-bar">
@@ -278,7 +278,7 @@ export default function App() {
                 className={`btn-primary-generate ${loading ? 'loading' : ''}`}
                 onClick={handleGenerate}
                 disabled={loading}
-                >
+              >
                 <div className="btn-inner">
                   {loading ? (
                     <>
@@ -302,8 +302,14 @@ export default function App() {
             </div>
 
             {/* Results Section */}
+            {/* Results Section */}
             <div ref={resultsRef}>
-              {results && <ResultsPanel results={results} />}
+              {results && (
+                <ResultsPanel
+                  results={results}
+                  generationId={activeHistoryId}
+                />
+              )}
             </div>
           </div>
 
@@ -315,7 +321,7 @@ export default function App() {
               activeId={activeHistoryId}
               currentUser={currentUser}
               onOpenAuth={() => setIsAuthOpen(true)}
-              />
+            />
           </aside>
         </div>
       </main>
@@ -324,13 +330,13 @@ export default function App() {
         isOpen={isPresetsOpen}
         onClose={() => setIsPresetsOpen(false)}
         onSelectPreset={handleSelectPreset}
-        />
+      />
 
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onAuthSuccess={handleAuthSuccess}
-        />
+      />
     </div>
   )
 }

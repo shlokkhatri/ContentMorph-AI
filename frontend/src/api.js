@@ -143,3 +143,26 @@ export async function fetchHistoryItem(id) {
   return res.json()
 }
 
+// Downloads a generation's presentation output as pptx, docx, or pdf.
+export async function downloadGeneration(id, format) {
+  const res = await fetch(`${API_BASE}/api/download/${id}/${format}`, {
+    headers: getAuthHeaders(false),
+  })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.detail || `Could not download the ${format.toUpperCase()} file.`)
+  }
+  const blob = await res.blob()
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^"]+)"?/)
+  const filename = match ? match[1] : `presentation.${format}`
+
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
